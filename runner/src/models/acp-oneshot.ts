@@ -9,6 +9,8 @@
 // text can be from anywhere (a thread, a web page it quoted), so nothing in it
 // gets to run anything. Never throws; models/index.ts decides what's next.
 import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import type { Account } from '../protocol.ts';
 import type { Logger } from '../log.ts';
 import type { ProcessRegistry } from '../proc.ts';
@@ -65,7 +67,10 @@ export function acpAsker(deps: AcpAskerDeps): Asker {
     const env = cliEnv(req.account, deps.env ?? process.env);
     delete env.CLAUDE_CONFIG_DIR;
     delete env.CLAUDE_AGENT_SDK_CLIENT_APP;
-    const proc = new AcpProcess({ binary, args: deps.agent.args, env: { ...env, ...deps.agent.env({ noTools: true }) }, cwd: req.cwd, registry: deps.registry, log: deps.log, label: `ask:${req.account.id}`, timings: deps.timings });
+    // An empty config folder of our own: OpenCode 2 reads no user config or
+    // plugins from it (opencodeEnv).
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'threadbear-acp-config-'));
+    const proc = new AcpProcess({ binary, args: deps.agent.args, env: { ...env, ...deps.agent.env({ noTools: true, configDir }) }, cwd: req.cwd, registry: deps.registry, log: deps.log, label: `ask:${req.account.id}`, timings: deps.timings });
     let text = '';
     proc.onNotification = (method, params) => {
       if (method !== 'session/update' || !isPlainObject(params) || !isPlainObject(params.update)) return;
@@ -115,6 +120,7 @@ export function acpAsker(deps: AcpAskerDeps): Asker {
     } finally {
       clearTimeout(timer);
       await proc.close().catch(() => undefined);
+      fs.rmSync(configDir, { recursive: true, force: true });
     }
   };
 }

@@ -1151,9 +1151,11 @@ one process per live thread, over stdio. With it off no account, pool or
   the thread doesn't start. `agent` is a generic name: a file only counts as
   Cursor's by where it really lives (`~/.local/share/cursor-agent/...`).
 - **Asking.** Every tool comes to the runner first. OpenCode gets `*: ask` as
-  inline config, with `OPENCODE_DISABLE_PROJECT_CONFIG=1` and `--pure`: a
-  folder's `opencode.json` outranks inline config, and its plugins run when a
-  session opens. Each request is answered from the thread's mode when it comes
+  inline config, with `OPENCODE_DISABLE_PROJECT_CONFIG=1` and an empty
+  `OPENCODE_CONFIG_DIR`: a folder's `opencode.json` outranks inline config,
+  and its plugins run when a session opens. The empty config dir is OpenCode
+  2's replacement for 1.x's `--pure`, so the user's own global config and
+  plugins stay out too. Each request is answered from the thread's mode when it comes
   (Full: allow; otherwise the card). Only the once options are ever chosen, as
   an agent remembers "always" past the thread; "Always allow" is the runner's
   rule (`acp:edit`, or the exact plain command). An edit of a file that runs as

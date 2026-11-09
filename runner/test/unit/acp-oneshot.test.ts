@@ -57,11 +57,12 @@ test('every tool the agent tries is refused', async () => {
 });
 
 test('small jobs get an agent told to deny every tool', () => {
-  const conf = JSON.parse(opencodeEnv({ noTools: true }).OPENCODE_CONFIG_CONTENT);
+  const conf = JSON.parse(opencodeEnv({ noTools: true, configDir: '/tmp/tb-opencode-config' }).OPENCODE_CONFIG_CONTENT);
   assert.equal(conf.permission['*'], 'deny');
   assert.equal(conf.permission.read, undefined, 'nothing is left open');
   assert.equal(conf.agent.plan.permission['*'], 'deny');
   assert.equal(opencodeEnv({ noTools: true }).OPENCODE_DISABLE_PROJECT_CONFIG, '1');
+  assert.equal(opencodeEnv({ noTools: true, configDir: '/tmp/tb-opencode-config' }).OPENCODE_CONFIG_DIR, '/tmp/tb-opencode-config');
 });
 
 test('the wrong program gets no text', async () => {

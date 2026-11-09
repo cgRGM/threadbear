@@ -26,7 +26,9 @@ export type AcpAgent = {
   // unguarded is here, so it applies whatever mode the thread starts in and
   // whatever it changes to later: the runner answers each request (AcpSession).
   // noTools: for a small job, where the agent may not use anything at all.
-  env(o?: { noTools?: boolean }): Record<string, string>;
+  // configDir: an empty folder of our own, where the agent keeps no user
+  // config or plugins (see opencodeEnv).
+  env(o?: { noTools?: boolean; configDir?: string }): Record<string, string>;
   // Whether the process that answered initialize really is this agent, as
   // the same command name can be another program's.
   identifies(init: InitializeResult): boolean;
@@ -80,9 +82,15 @@ const DENY_EVERYTHING: Record<string, string> = { '*': 'deny' };
 // So the folder's OpenCode config isn't read at all, as a folder's Claude
 // settings aren't until trusted. The rules go on the agents too: agent-level
 // rules outrank top-level ones.
-export function opencodeEnv(o: { noTools?: boolean } = {}): Record<string, string> {
+//
+// OpenCode 2 removed `--pure` (1.x's "no external plugins"). Its replacement
+// is an empty OPENCODE_CONFIG_DIR: the user's global config and plugins don't
+// load, while their logins stay in the data dir. The adapter makes one per
+// session, so a plugin in ~/.config/opencode can't run inside a thread.
+export function opencodeEnv(o: { noTools?: boolean; configDir?: string } = {}): Record<string, string> {
   const permission = o.noTools ? DENY_EVERYTHING : ASK_FOR_EVERYTHING;
   return {
+    ...(o.configDir ? { OPENCODE_CONFIG_DIR: o.configDir } : {}),
     OPENCODE_DISABLE_PROJECT_CONFIG: '1',
     OPENCODE_DISABLE_AUTOUPDATE: '1',
     OPENCODE_CONFIG_CONTENT: JSON.stringify({ permission, agent: { build: { permission }, plan: { permission }, general: { permission }, explore: { permission } } }),
@@ -104,8 +112,9 @@ export const ACP_AGENTS: Record<AcpProvider, AcpAgent> = {
       const own = path.join(home, '.opencode', 'bin', 'opencode');
       return isExecutableFile(own) ? own : onPath('opencode', pathEnv);
     },
-    // --pure: no plugins, the user's own included, for the same reason.
-    args: ['acp', '--pure'],
+    // No --pure: OpenCode 2 removed it, and an empty OPENCODE_CONFIG_DIR
+    // (opencodeEnv) is its replacement.
+    args: ['acp'],
     updateArgs: ['upgrade'],
     env: opencodeEnv,
     identifies: (init) => /opencode/i.test(init.agentInfo?.name ?? '') || Boolean(init.authMethods?.some((m) => m.id === 'opencode-login')),

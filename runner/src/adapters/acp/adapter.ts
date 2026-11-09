@@ -82,12 +82,12 @@ export class AcpAdapter implements AgentAdapter {
     this.provider = deps.agent.provider;
   }
 
-  private env(account: Account, threadEnv?: Record<string, string>): Record<string, string | undefined> {
+  private env(account: Account, threadEnv?: Record<string, string>, configDir?: string): Record<string, string | undefined> {
     const env = cliEnv(account, this.deps.env ?? process.env);
     delete env.CLAUDE_CONFIG_DIR;
     delete env.CLAUDE_AGENT_SDK_CLIENT_APP;
     // Last, so a thread's own variables can't take these off.
-    return { ...env, ...threadEnv, ...this.deps.agent.env() };
+    return { ...env, ...threadEnv, ...this.deps.agent.env({ configDir }) };
   }
 
   private binary(): string {
@@ -101,7 +101,11 @@ export class AcpAdapter implements AgentAdapter {
   start(opts: StartSessionOptions, sink: SessionSink): AgentSession {
     // None of these run in the sandbox (sandbox.ts).
     if (opts.confined) throw new Error(`This thread runs in a sandbox, and ${providerName(this.provider)} can't, so it wasn't started. Move it to a Claude login.`);
-    const s = new AcpSession(opts, sink, this.deps, this.binary(), this.env(opts.account, opts.env));
+    // An empty config folder of our own: OpenCode 2 reads no user config or
+    // plugins from it (opencodeEnv). It goes with the session.
+    fs.mkdirSync(opts.tmpDir, { recursive: true });
+    const configDir = fs.mkdtempSync(path.join(opts.tmpDir, 'acp-config-'));
+    const s = new AcpSession(opts, sink, this.deps, this.binary(), this.env(opts.account, opts.env, configDir), configDir);
     s.start();
     return s;
   }
@@ -112,7 +116,8 @@ export class AcpAdapter implements AgentAdapter {
   async models(account: Account): Promise<ModelChoice[]> {
     const { deps } = this;
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'threadbear-acp-'));
-    const p = new AcpProcess({ binary: this.binary(), args: deps.agent.args, env: this.env(account), cwd, registry: deps.registry, log: deps.log, label: `models:${account.id}`, timings: deps.timings });
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'threadbear-acp-config-'));
+    const p = new AcpProcess({ binary: this.binary(), args: deps.agent.args, env: this.env(account, undefined, configDir), cwd, registry: deps.registry, log: deps.log, label: `models:${account.id}`, timings: deps.timings });
     try {
       const init = await p.start();
       if (!deps.agent.identifies(init)) throw new Error(`The program found for ${providerName(this.provider)} isn't it.`);
@@ -122,6 +127,7 @@ export class AcpAdapter implements AgentAdapter {
     } finally {
       await p.close().catch(() => undefined);
       fs.rmSync(cwd, { recursive: true, force: true });
+      fs.rmSync(configDir, { recursive: true, force: true });
     }
   }
 }
@@ -158,11 +164,15 @@ export class AcpSession implements AgentSession {
   private exitedCalled = false;
   private exitPromise: Promise<void>;
   private resolveExit!: () => void;
+  // An empty folder OpenCode reads as its config dir (opencodeEnv), removed
+  // when the session ends.
+  private configDir?: string;
 
-  constructor(opts: StartSessionOptions, sink: SessionSink, deps: AcpAdapterDeps, binary: string, env: Record<string, string | undefined>) {
+  constructor(opts: StartSessionOptions, sink: SessionSink, deps: AcpAdapterDeps, binary: string, env: Record<string, string | undefined>, configDir?: string) {
     this.opts = opts;
     this.sink = sink;
     this.deps = deps;
+    this.configDir = configDir;
     this.now = deps.now ?? Date.now;
     this.mode = opts.permissionMode;
     this.model = opts.model;
@@ -639,6 +649,10 @@ export class AcpSession implements AgentSession {
     this.cancelPending(false);
     this.proc.onRequest = null;
     this.mcp?.close();
+    if (this.configDir) {
+      fs.rmSync(this.configDir, { recursive: true, force: true });
+      this.configDir = undefined;
+    }
     this.emit(this.normalizer.closeOpen('Interrupted'));
     this.turn = undefined;
     this.resolveExit();

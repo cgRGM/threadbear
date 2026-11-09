@@ -56,7 +56,7 @@ test('a thread with no provider is a Claude one, as a record from before Codex',
 
 function home(on: boolean): string {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-prov-'));
-  if (on) fs.writeFileSync(path.join(d, 'runner.json'), JSON.stringify({ experiments: { acpAgents: true } }));
+  fs.writeFileSync(path.join(d, 'runner.json'), JSON.stringify({ experiments: { acpAgents: on } }));
   return d;
 }
 
@@ -94,5 +94,5 @@ test('a saved pool of only an agent this runner does not offer is gone', () => {
 test('hello lists each provider this runner offers', () => {
   assert.deepEqual(providersForHello().map((p) => p.id), [...PROVIDERS]);
   const h = makeHarness(undefined, {}, { accounts: new FakeAccounts(withCodex()) });
-  assert.deepEqual(h.runner.hello().providers.map((p) => p.name), ['Claude', 'Codex']);
+  assert.deepEqual(h.runner.hello().providers.map((p) => p.name), ['Claude', 'Codex', 'Cursor', 'OpenCode']);
 });

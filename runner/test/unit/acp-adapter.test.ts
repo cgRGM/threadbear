@@ -140,14 +140,15 @@ for (const mode of ['ask', 'auto', 'plan'] as PermissionMode[]) {
 }
 
 test('the row turns the folder config, plugins and the agent\'s updates off', () => {
-  const env = opencodeEnv();
+  const env = opencodeEnv({ configDir: '/tmp/tb-opencode-config' });
   assert.equal(env.OPENCODE_DISABLE_PROJECT_CONFIG, '1');
   assert.equal(env.OPENCODE_DISABLE_AUTOUPDATE, '1');
+  assert.equal(env.OPENCODE_CONFIG_DIR, '/tmp/tb-opencode-config', 'the user\'s global config and plugins stay out');
   const conf = JSON.parse(env.OPENCODE_CONFIG_CONTENT);
   assert.equal(conf.permission['*'], 'ask', 'a tool no one has heard of asks too');
   assert.equal(conf.agent.build.permission['*'], 'ask', "an agent's own rules outrank the top level");
   assert.equal(conf.agent.plan.permission['*'], 'ask');
-  assert.ok(ACP_AGENTS.opencode.args.includes('--pure'));
+  assert.ok(!ACP_AGENTS.opencode.args.includes('--pure'), 'OpenCode 2 removed --pure; the empty config dir does its job');
 });
 
 test("a folder's plugin doesn't run", async () => {

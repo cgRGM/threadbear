@@ -61,7 +61,7 @@ function deniesAll() {
 }
 
 function openedSession(cwd) {
-  if (env.OPENCODE_DISABLE_PROJECT_CONFIG !== '1' && !process.argv.includes('--pure')) {
+  if (env.OPENCODE_DISABLE_PROJECT_CONFIG !== '1' && !env.OPENCODE_CONFIG_DIR) {
     const plugin = path.join(cwd, '.opencode', 'plugins', 'run.txt');
     if (fs.existsSync(plugin)) fs.writeFileSync(fs.readFileSync(plugin, 'utf8').trim(), 'plugin ran');
   }
