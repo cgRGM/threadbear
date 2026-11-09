@@ -277,12 +277,14 @@ File references are where to look.
   (`runner/src/accounts.ts`, `runner/src/token-tally.ts`;
   `THREADBEAR_TOKEN_TALLY=off` stops the counting). It never reads or
   copies login tokens or the Keychain.
-- With the `acpAgents` experiment on: whether `~/.opencode/bin/opencode`, an
+- With the `acpAgents` experiment on (on by default in this fork): whether
+  `~/.opencode/bin/opencode`, an
   `opencode` or `cursor-agent` on your PATH, `~/.local/bin/cursor-agent` and
   `~/.local/bin/agent` exist and where they really lead, and whether
   `~/.cursor/cli-config.json` exists (never opened). OpenCode itself reads
-  `~/.config/opencode` and, as it does anywhere, your `~/.claude/skills`; a
-  folder's own OpenCode config and plugins are turned off.
+  `~/.claude/skills` as it does anywhere; its own config and plugins, global
+  and the folder's, are turned off with an empty `OPENCODE_CONFIG_DIR`, so
+  `~/.config/opencode` is not read.
 - Token Stats' files, if you have that app, and any logins you've added
   under `accounts` in its data folder (`claude-1`, `codex-1`...).
 - Your first name, from your Mac account's full name (`id -F`), so its
